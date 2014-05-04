@@ -1,0 +1,222 @@
+#!/bin/sh
+
+###############################################################################
+                    # Author : wangdiwen
+                    # Date   : 2014-01
+                    # License: LGPL
+                    # Note   : This script is for Parted the disk automatically.
+
+                    # Keep It Simple and Stupid
+###############################################################################
+
+###############################################################################
+                    # Public Functions
+###############################################################################
+# Note: echo color log
+COLOR_RED=$( echo -e "\e[31;49m" )
+COLOR_GREEN=$( echo -e "\e[32;49m" )
+COLOR_YELLOW=$( echo -e "\e[33;49m" )
+COLOR_BLUE=$( echo -e "\e[34;49m" )
+COLOR_RESET=$( echo -e "\e[0m" )
+
+log() { echo "$*"; }                                    # white color
+tips() { echo "${COLOR_GREEN}$*${COLOR_RESET}"; }       # gree color
+info() { echo "${COLOR_BLUE}$*${COLOR_RESET}"; }        # bule color
+warning() { echo "${COLOR_YELLOW}$*${COLOR_RESET}"; }   # yellow color
+error() { echo "${COLOR_RED}$*${COLOR_RESET}"; }        # red color
+###############################################################################
+
+###############################################################################
+                    # Define Your Functions Here
+###############################################################################
+function usage() {
+    cat << HELP
+    Usge: -h | --help for help
+        This script is for Parted the disk automatically.
+HELP
+}
+
+function your_func() {
+    tips 'Todo...'
+}
+###############################################################################
+
+
+###############################################################################
+                    # The Logic Process
+###############################################################################
+case $1 in                  # just support input one or none arguments
+    # Todo...
+    -h|--help ) usage; exit
+        ;;
+esac
+
+tips "====== Auto Setting MAC Configuration ======"
+
+# modify the net card mac addr, by diwen
+eth0_file=/opt/system/etc/sysconfig/network-scripts/ifcfg-eth0
+eth1_file=/opt/system/etc/sysconfig/network-scripts/ifcfg-eth1
+net_rule_file=/etc/udev/rules.d/70-persistent-net.rules
+
+eth0_mac=
+eth1_mac=
+mac_flag=0
+
+/etc/init.d/network status | tail -n 1 | grep -q eth
+if [ "$?" != "0" ]; then
+    # here, auto config mac address
+    if [ -f $net_rule_file ]; then
+        echo "Search 70-persistent-net.rules config file ..."
+
+        eth0_mac=`cat $net_rule_file | grep ATTR | awk -F, '{ print $4 }' | awk -F "==" '{ print $2 }' | tr [a-z] [A-Z] | sed -n 2p | sed "s/\"//g"`
+        eth1_mac=`cat $net_rule_file | grep ATTR | awk -F, '{ print $4 }' | awk -F "==" '{ print $2 }' | tr [a-z] [A-Z] | sed -n 1p | sed "s/\"//g"`
+
+        # revise the lan1-lan2 sort
+        eth_list=`cat /etc/udev/rules.d/70-persistent-net.rules | grep ATTR | awk -F, '{ print $4 }' | awk -F "==" '{ print $2 }' | tr [a-z] [A-Z] | sed "s/\"//g" | sort -r | uniq`
+        arr=($eth_list)
+        len=${#arr[@]}
+        [ $len -eq 2 ] && { eth0_mac=${arr[1]}; eth1_mac=${arr[0]}; }
+    else
+        echo "Not find /etc/udev/rules.d/70-persistent-net.rules"
+
+        echo "try to check dmesg info ..."
+        eth0_mac=`dmesg | grep -E "eth0: \(PCI" | awk '{ print $7 }' | tr [a-z] [A-Z]`
+        eth1_mac=`dmesg | grep -E "eth1: \(PCI" | awk '{ print $7 }' | tr [a-z] [A-Z]`
+    fi
+
+    echo "eth0 mac = "$eth0_mac
+    echo "eth1 mac = "$eth1_mac
+
+    if [ -n $eth0_mac ] && [ -n $eth1_mac ]; then
+        sed -i "s/\(^HWADDR=.*\)/HWADDR=\"$eth0_mac\"/" $eth0_file
+        sed -i "s/\(^HWADDR=.*\)/HWADDR=\"$eth1_mac\"/" $eth1_file
+
+        mac_flag=1
+    fi
+
+    if [ "$mac_flag" == "1" ]; then
+        # sync the latest net config
+        cp -ar /opt/system/etc/sysconfig/network-scripts/* /etc/sysconfig/network-scripts
+
+        [ -f "/etc/udev/rules.d/70-persistent-net.rules" ] && { rm -f /etc/udev/rules.d/70-persistent-net.rules; }
+
+        start_udev > /dev/null 2>&1    # reload the udev
+        /etc/init.d/network restart    # restart the network
+
+        # checking network status
+        /etc/init.d/network status | tail -n 1 | grep -q eth
+        if [ "$?" == "0" ]; then
+            tips "Auto config MAC address success"
+        else
+            /etc/init.d/network restart
+        fi
+    fi
+else
+    tips "MAC address has aleady binded, nothing todo !"
+fi
+
+# checking system manager tools
+ps -ef | grep restful | grep -v grep > /dev/null
+[ "$?" != "0" ] && { /etc/init.d/restful-server restart; }
+/etc/init.d/web-frontend status > /dev/null
+[ "$?" != "0" ] && { /etc/init.d/web-frontend restart; }
+
+# sleep 5     # for test obversion
+
+tips "====== Auto Parted the System Disk ======"
+
+scsi_disk=
+
+echo "get the disk devices ..."
+disk_list=`ls /dev/sd* | grep -E "sd[a-z]$"`
+disk_count=0
+for item in $disk_list; do
+    tips "valid scsi disk $item"                # $item like: /dev/sda
+
+    # parted -s $item print | head -n 1 | grep -E "ATA ST"          # abolished by diwen
+    # [ "$?" == "0" ] && { echo "find scsi disk -> "$item; scsi_disk=$item; disk_count=$[disk_count + 1]; }
+
+    # Note: now system disk is 60G, and we check >= 100G -> 100000000000
+    # use fdisk method, but just adjust < 2T disk volume
+    # disk_vol=`fdisk -l $item 2>/dev/null | grep -E "^Disk /dev/" | awk '{ print $5 }'`         # bytes
+    # [ $disk_vol -gt 100000000000 ] && {
+    #     echo "find valid disk -> $item"
+    #     scsi_disk=$item
+    #     disk_count=$[disk_count + 1]
+    # }
+
+    # use parted method, adjust all volume of disk
+    # first, resove the problem of no exist partition info of new disk
+    parted -s $item print 2>&1 | grep "unrecognised" > /dev/null 2>&1
+    [ "$?" == "0" ] && {
+        parted -s $item mklabel gpt
+        sleep 2
+    }
+
+    # check this disk volume and aleady partition count
+    disk_vol=`parted -s $item print | grep -E "Disk /dev/" | awk '{ print $3 }'`  # like: 500GB
+    disk_vol=${disk_vol%%G*}                                                         # like: 500, or mybe 60.0
+    disk_vol=${disk_vol%%.*}                            # revise has '60.0' such has '.' problem
+    [ $disk_vol -gt 100 ] && {
+        echo "find valid disk -> $item"
+        scsi_disk=$item
+        disk_count=$[disk_count + 1]
+    }
+done
+
+[ $disk_count -ne 1 ] && {
+    tips "Find more than 1 disk, cannot choose which one to use, quit !!!"
+    exit 1
+}
+
+echo "device is -> "$scsi_disk          # $scsi_disk like: /dev/sda
+[ -z $scsi_disk ] && { error "not find scsi disk, quit ..."; exit 1; }
+
+echo ''
+echo "checking volume"
+
+# volume=`fdisk -l $scsi_disk 2>/dev/null | grep -E "^Disk /dev/" | awk '{ print $3 }'`  # like: 500.1/2000.4 (G)
+
+# use parted method
+volume=`parted -s $scsi_disk print | grep -E "Disk /dev/" | awk '{ print $3 }'`  # like: 500GB
+
+tips "disk volume => $volume GB"
+
+# get valid volume number
+# num=${volume%%.*}                     # fdisk method
+num=${volume%%G*}  # like: 500 number
+num=${volume%%.*}  # revise has '60.0' such has '.' problem
+
+tips "invalid volume num => $num"
+[ $num -lt 100 ] && { echo "error: volume is too low, quit !"; exit 1; }
+[ $num -gt 100 ] && { tips "volume is ok"; }
+
+echo ''
+echo "check the parted info ..."
+
+# parted_count=`fdisk -l $scsi_disk 2>/dev/null | grep -E "^/dev/" | wc -l`           # fdisk method
+parted_count=`parted -s $scsi_disk print | grep -E "^ [0-9]+" | wc -l`
+
+if [ $parted_count -ne 2 ]; then
+    warning "not find valid table, donnot match 2 tables"
+    warning "we try to parted the new table for it ..."
+
+    echo ''
+    echo "now, create new tables ..."
+    total_vol=$num"G"
+
+    parted -s $scsi_disk mklabel gpt                    # use gpt format, for > 2T disk
+    parted -s $scsi_disk mkpart primary 0 20G
+    parted -s $scsi_disk mkpart primary 20G $total_vol
+
+    [ "$?" == "0" ] && { tips "create partition ok"; }
+
+    echo ''
+    echo "format the new table ..."
+    mkfs.ext3 $scsi_disk"1"
+    mkfs.ext3 $scsi_disk"2"
+
+    [ "$?" == "0" ] && { tips "format talbe ok"; }
+else
+    tips "aleady parted table, nothing to do !"
+fi

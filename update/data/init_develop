@@ -1,0 +1,6 @@
+#!/bin/ash
+mkdir -p /mnt/system
+mount -t ext3 LABEL=system /mnt/system
+
+cp -ar /mnt/system/etc/* /sysroot/etc
+umount /mnt/system

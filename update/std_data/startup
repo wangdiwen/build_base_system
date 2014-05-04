@@ -1,0 +1,117 @@
+#!/bin/sh
+#
+# chkconfig: 35 90 90
+# description: Starts and stops the restful server.
+#
+
+# Source function library.
+if [ -f /etc/init.d/functions ] ; then
+  . /etc/init.d/functions
+elif [ -f /etc/rc.d/init.d/functions ] ; then
+  . /etc/rc.d/init.d/functions
+else
+  exit 1
+fi
+
+# Avoid using root's TMPDIR
+unset TMPDIR
+
+# Source networking configuration.
+. /etc/sysconfig/network
+
+# Check that networking is up.
+[ ${NETWORKING} = "no" ] && exit 1
+
+RETVAL=0
+
+start() {
+    chmod 777 /opt/program/etc
+    chmod 777 /opt/program/bin
+    KIND="startup"
+	echo -n $"Starting $KIND services: "
+    if [ ! -f /opt/system/conf/restful-server/startup ];then 
+        return 1
+    fi
+	for line in `cat /opt/system/conf/restful-server/startup`;
+    do
+        if [ "${line##*|}" == "off" ];then
+            continue;
+        fi
+        DIR=${line%%|*}
+        if [ -x /opt/program/bin/$DIR/.init ];
+        then
+            su -c "/opt/program/bin/$DIR/.init status" mmap;
+            if [ $? -ne 0 ];
+            then
+                su -c "/opt/program/bin/$DIR/.init start" mmap;
+            fi
+        fi
+    done
+
+	RETVAL=$?
+	echo
+	return $RETVAL
+}
+
+stop() {
+    KIND="startup"
+	echo -n $"Shutting down $KIND services: "
+    if [ ! -f /opt/system/conf/restful-server/startup ];then 
+        return 1
+    fi
+    for line in `cat /opt/system/conf/restful-server/startup`;
+    do
+        if [ "${line##*|}" == "off" ];then
+            continue;
+        fi
+        DIR=${line%%|*}
+        
+        if [ -x /opt/program/bin/$DIR/.init ];
+        then
+            su -c "/opt/program/bin/$DIR/.init stop" mmap;
+        fi
+    done
+	RETVAL=$?
+	echo
+	return $RETVAL
+}
+
+restart() {
+	stop
+	start
+}
+
+rhstatus() {
+	status $rss_rss status
+	RETVAL=$?
+	if [ $RETVAL -ne 0 ] ; then
+		return $RETVAL
+	fi
+}
+
+
+# Allow status as non-root.
+if [ "$1" = status ]; then
+       rhstatus
+       exit $?
+fi
+
+case "$1" in
+  start)
+  	start
+	;;
+  stop)
+  	stop
+	;;
+  restart)
+  	restart
+	;;
+  status)
+  	rhstatus
+	;;
+  *)
+	echo $"Usage: $0 {start|stop|restart|status}"
+	exit 2
+esac
+
+exit $?

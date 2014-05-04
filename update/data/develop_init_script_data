@@ -1,0 +1,4 @@
+mkrootdev -t ext3 -o defaults,rw /dev/root
+echo Mounting root filesystem.
+mount /sysroot
+/bin/ash init_develop

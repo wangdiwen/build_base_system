@@ -1,0 +1,131 @@
+#!/bin/bash
+
+log_file=/var/log/vmediax_log
+
+echo -e "" > $log_file
+
+ISSUE_MAJOR_VERSION=$(cat /etc/issue|head -n 1 |awk '{printf $3}'|awk -F '.' '{printf $1}')
+ISSUE_MINOR_VERSION=$(cat /etc/issue|head -n 1 |awk '{printf $3}'|awk -F '.' '{printf $2}')
+
+function format_text()
+{
+    local color="32"
+    case $1 in
+        RED)
+            color="31"
+            shift 1
+            ;;
+        GREEN)
+            color="32"
+            shift 1
+            ;;
+        GENERAL)
+            color="0"
+            shift 1
+            ;;
+    esac
+
+    if [ "$color" == "0" ]; then
+        echo -e "$*"
+        return
+    fi
+    case $TERM in
+            #   for the most terminal types we directly know the sequences
+        xterm|xterm*|vt220|vt220*)
+            term_bold=`echo -ne "\033[${color}m\033[1m";` #`awk 'BEGIN { printf("%c%c%c%c", 27, 91, 49, 109); }' </dev/null 2>/dev/null`
+            term_norm=`echo -ne "\033[0m";` #`awk 'BEGIN { printf("%c%c%c", 27, 91, 109); }' </dev/null 2>/dev/null`
+            ;;
+        vt100|vt100*|cygwin)
+            term_bold=`echo -ne "\033[${color}m\033[1m\0\0";` #`awk 'BEGIN { printf("%c%c%c%c%c%c", 27, 91, 49, 109, 0, 0); }' </dev/null 2>/dev/null`
+            term_norm=`echo -ne "\033[0m\0\0";` #`awk 'BEGIN { printf("%c%c%c%c%c", 27, 91, 109, 0, 0); }' </dev/null 2>/dev/null`
+            ;;
+        *)  term_bold=`echo -ne "\033[${color}m\033[1m";`
+            term_norm=`echo -ne "\033[0m";`
+            ;;
+    esac
+
+    echo -e "$term_bold$*$term_norm"
+    echo "$*" >> $log_file
+
+    #sudo echo -e "$*\n" >> $BUILD_LOG_FILE
+}
+
+function log()
+{
+    format_text GENERAL $*
+}
+
+function info()
+{
+    format_text GREEN $*
+}
+
+function error()
+{
+    format_text RED $*
+}
+
+function check_version_and_system_info()
+{
+    local conf_file=/etc/version
+    
+    local update_issue=$(cat $conf_file|grep issue|awk -F "=" '{print $2}')
+    local update_kernel_version=$(cat $conf_file|grep kernel|awk -F "=" '{print $2}')
+    local update_cpu=$(cat $conf_file|grep cpu|awk -F "=" '{print $2}')
+    local update_base_board=$(cat $conf_file|grep base_board|awk -F "=" '{print $2}')
+    local update_video_adaptor=$(cat $conf_file|grep video_adaptor|awk -F "=" '{print $2}')
+    
+    local issue=$(cat /etc/issue|head -1)
+    if [ "$update_issue" != "$issue" ]; then
+        error "issue is not match:${update_issue} is allow,but now is ${issue}"
+        sleep 2
+    else
+        info "issue is match:${update_issue}"
+    fi
+    
+    local kernel_version=$(uname -s -p -i -r)
+    if [ "$update_kernel_version" != "$kernel_version" ]; then
+        error "kernel is not match:${update_kernel_version} is allow,but now is ${kernel_version}"
+        sleep 2
+    else
+        info "kernel is match:${update_kernel_version}"
+    fi
+    
+    local cpu=$(cat /proc/cpuinfo |grep name|awk -F ":" '{print $2;exit}')
+    if [ "$update_cpu" != "${cpu## }" ]; then
+        error "cpu is not match:${update_cpu} is allow,but now is ${cpu}"
+        sleep 2
+    else
+        info "cpu is match:${update_cpu}"
+    fi
+    
+    local base_board=$(dmidecode -t 2|grep Product|awk -F ":" '{print $2}')
+    if [ "$update_base_board" != "${base_board## }" ]; then
+        error "base_board is not match:${update_base_board} is allow,but now is ${base_board}"
+        sleep 2
+    else
+        info "base_board is match:${update_base_board}"
+    fi
+    
+    local video_adaptor=$(lspci |grep -i VGA|awk -F ":" '{print $3}'|head -n 1)
+    if [ "$update_video_adaptor" != "${video_adaptor## }" ]; then
+        error "video_adaptor is not match:${update_video_adaptor} is allow,but now is ${video_adaptor}"
+        sleep 2
+    else
+        info "video_adaptor is match:${update_video_adaptor}"
+    fi
+    
+    sleep 5
+}
+
+check_version_and_system_info
+
+
+for line in `ls /opt/program/etc/init.d/`;
+do
+    if [ -x /opt/program/etc/init.d/$line ];
+    then
+        sh /opt/program/etc/init.d/$line;
+    fi
+done
+

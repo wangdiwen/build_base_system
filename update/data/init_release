@@ -1,0 +1,24 @@
+#!/bin/ash
+
+echo "Mount sysroot filesystem, size 4G ..."
+mkdir -p /sysroot
+mount tmpfs /sysroot -t tmpfs -o size=4G
+
+echo "mount LABEL=/ /mnt/root"
+mkdir -p /mnt/root
+mount -t ext3 LABEL=/ /mnt/root
+
+echo "copy rootfs from disk to tmpfs ..."
+cp -ar /mnt/root/* /sysroot
+umount /mnt/root
+
+echo "Mount /opt/system partition ..."
+mkdir -p /mnt/system
+mount -t ext3 LABEL=system /mnt/system
+
+echo "Sync the /opt/system to root filesystem ..."
+cp -ar /mnt/system/etc/* /sysroot/etc
+umount /mnt/system
+
+#mkdir -p /etc
+#echo "/dev/root /sysroot ext3 defaults,rw 0 0" >/etc/fstab

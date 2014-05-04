@@ -1,0 +1,5 @@
+说明：
+    1. *.spec               --rpm构建需要的 spec脚本
+    2. restful-server       --restful server软件的开机启动脚本
+    3. web-frontend         --web frontend软件的开机启动脚本
+

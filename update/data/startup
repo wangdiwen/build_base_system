@@ -1,0 +1,149 @@
+#!/bin/sh
+#
+# chkconfig: 35 90 90
+# description: Starts and stops the restful server.
+#
+
+# Source function library.
+if [ -f /etc/init.d/functions ] ; then
+  . /etc/init.d/functions
+elif [ -f /etc/rc.d/init.d/functions ] ; then
+  . /etc/rc.d/init.d/functions
+else
+  exit 1
+fi
+
+# Avoid using root's TMPDIR
+unset TMPDIR
+
+# Source networking configuration.
+. /etc/sysconfig/network
+
+# Check that networking is up.
+# [ ${NETWORKING} = "no" ] && exit 1
+
+RETVAL=0
+
+start() {
+  chmod 777 /opt/program/etc
+  chmod 777 /opt/program/bin
+
+  KIND="startup"
+  echo -n $"Starting $KIND services: "
+
+  # open '/tmp' dir permission to 777
+  chmod -R 0777 /tmp
+  # try to start /opt/program/etc/init.d/xxx scripts
+  for item in $(find /opt/program/etc/init.d/ -type f | sort); do
+      #statements
+      # /bin/bash $item > /dev/null 2>&1  # dot use '>/dev/null' revise by diwen,
+      /bin/bash $item start 2>&1
+      if [ "$?" == "0" ]; then
+          echo "start $item ... Ok"
+      else
+          echo "start $item ... failed"
+      fi
+  done
+
+  if [ ! -f /opt/system/conf/restful-server/startup ];then
+    return 1
+  fi
+
+  # here, checking '/opt/system/conf/restful-server/startup'
+  # is exist startup item or not
+  # if not init the startup item, then init it again by restful-server restart
+  [ ! -s "/opt/system/conf/restful-server/startup" ] && {
+      /etc/init.d/restful-server restart;
+      sleep 5
+  }
+
+	for line in `cat /opt/system/conf/restful-server/startup`;
+  do
+      if [ "${line##*|}" == "off" ];then
+          continue;
+      fi
+      DIR=${line%%|*}
+      if [ -x /opt/program/bin/$DIR/.init ]; then
+          if [ "$DIR" == "hvec" ]; then
+              /bin/bash /opt/program/bin/$DIR/.init start > /dev/null 2>&1
+              sleep 2
+              # change the permission to mmap
+              lsmod | grep -q vmx_encoder
+              [ "$?" == "0" ] && { chown mmap.mmap /dev/vmx_encoder*; }
+          else
+              su -c "/opt/program/bin/$DIR/.init status" mmap;
+              if [ $? -ne 0 ]; then
+                  su -c "/opt/program/bin/$DIR/.init start" mmap;
+              fi
+          fi
+      fi
+  done
+
+	RETVAL=$?
+	echo
+	return $RETVAL
+}
+
+stop() {
+    KIND="startup"
+	echo -n $"Shutting down $KIND services: "
+    if [ ! -f /opt/system/conf/restful-server/startup ];then
+        return 1
+    fi
+    for line in `cat /opt/system/conf/restful-server/startup`;
+    do
+        if [ "${line##*|}" == "off" ];then
+            continue;
+        fi
+        DIR=${line%%|*}
+
+        if [ -x /opt/program/bin/$DIR/.init ] && [ "$DIR" != "hvec" ];
+        then
+            su -c "/opt/program/bin/$DIR/.init stop" mmap;
+        fi
+    done
+	RETVAL=$?
+	echo
+	return $RETVAL
+}
+
+restart() {
+	stop
+	start
+}
+
+rhstatus() {
+  rss_rss="/opt/program/bin/rss/.init"
+	status $rss_rss status
+	RETVAL=$?
+	if [ $RETVAL -ne 0 ] ; then
+		return $RETVAL
+	fi
+}
+
+
+# Allow status as non-root.
+if [ "$1" = status ]; then
+       rhstatus
+       exit $?
+fi
+
+case "$1" in
+  start)
+  	start
+	;;
+  stop)
+  	stop
+	;;
+  restart)
+  	restart
+	;;
+  status)
+  	rhstatus
+	;;
+  *)
+	echo $"Usage: $0 {start|stop|restart|status}"
+	exit 2
+esac
+
+exit $?

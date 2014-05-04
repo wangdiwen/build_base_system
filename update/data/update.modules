@@ -1,0 +1,38 @@
+#!/bin/bash
+
+function deal_vmx_fstab()
+{
+    local conf_file=/etc/vmx-fstab
+    if [ -f $conf_file ];then
+        cat ${conf_file} | while read line
+        do
+            if [ "$line" == "" -o "${line:0:1}" == "#" ];then
+                continue
+            fi
+            declare -a item
+            unset item
+            #local item_list=$(echo $line|awk '{printf("%s\n%s\n%s\n%s\n",$1,$2,$3,$4)}')
+            for i in $line
+            do
+                item[${#item[@]}]=$i
+            done
+            if [ ! -d ${item[1]} ];then
+                mkdir -p ${item[1]}
+            fi
+            if [ "${item[3]}" != "defaults" ];then
+                mount ${item[0]} ${item[1]} -t ${item[2]} -o ${item[3]}
+            else
+                mount ${item[0]} ${item[1]} -t ${item[2]}
+            fi
+            if [ $? != 0 ];then
+                mountpoint ${item[1]}
+                if [ $? != 0 ];then
+                    chown root:root ${item[1]}
+                    chmod 444 ${item[1]} -R
+                fi
+            fi
+        done
+    fi
+}
+
+deal_vmx_fstab

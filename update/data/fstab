@@ -1,0 +1,9 @@
+LABEL=system       /opt/system             ext3    defaults        1 2
+LABEL=prog_etc     /opt/program/etc           ext3    defaults        1 2
+LABEL=prog_log     /opt/program/log           ext3    defaults        1 2
+LABEL=prog_bin     /opt/program/bin           ext3    defaults        1 2
+LABEL=/boot             /boot                   ext3    defaults        1 2
+tmpfs                   /dev/shm                tmpfs   defaults        0 0
+devpts                  /dev/pts                devpts  gid=5,mode=620  0 0
+sysfs                   /sys                    sysfs   defaults        0 0
+proc                    /proc                   proc    defaults        0 0
