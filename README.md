@@ -14,6 +14,13 @@ Note:
     
     -d  means burn the mini system to a mounted disk, the dev is '/dev/sdb',
     
+Doc:
+    
+    In a standard Linux system, system disk maybe /dev/sda, or other devices,
+    
+    in this script shell, we resume sys disk is /dev/sda, the default burn sys disk is /dev/sdb,
+    
+    but you can config the burn sys disk in a configure file in path -> 'update/data/config'.
 
 
 Author: wangdiwen
