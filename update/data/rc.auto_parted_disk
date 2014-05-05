@@ -155,7 +155,7 @@ for item in $disk_list; do
 
     # check this disk volume and aleady partition count
     disk_vol=`parted -s $item print | grep -E "Disk /dev/" | awk '{ print $3 }'`  # like: 500GB
-    disk_vol=${disk_vol%%G*}                                                         # like: 500, or mybe 60.0
+    disk_vol=${disk_vol%%G*}                            # like: 500, or mybe 60.0
     disk_vol=${disk_vol%%.*}                            # revise has '60.0' such has '.' problem
     [ $disk_vol -gt 100 ] && {
         echo "find valid disk -> $item"

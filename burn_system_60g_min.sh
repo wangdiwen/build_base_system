@@ -4,7 +4,7 @@ TOPDIR=$(pwd)
 
 install_to_cf=
 install_type=
-system_version=1.6
+system_version=1.7
 build_time=$(date +"%Y-%m-%d %H:%M:%S")  # 2014-03-14 13:43:43
 
 ISSUE_MAJOR_VERSION=$(cat /etc/issue|head -n 1 |awk '{printf $3}'|awk -F '.' '{printf $1}')
