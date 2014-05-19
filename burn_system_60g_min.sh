@@ -148,7 +148,17 @@ rpm -q smartmontools
 # check samba cifs mount utils
 rpm -q cifs-utils
 [ "$?" != "0" ] && {
-    yum -y cifs-utils
+    yum -y install cifs-utils
+}
+
+rpm -q expect
+[ "$?" != "0" ] && {
+    yum -y install expect
+}
+
+rpm -q yum-plugin-downloadonly
+[ "$?" != "0" ] && {
+    yum -y install yum-plugin-downloadonly
 }
 
 
@@ -335,6 +345,11 @@ if [ -n $SYSTEM_PATH ] && [ -n $ROOT_PATH ]; then
 
     echo -e "123456\n123456" | passwd root
     echo "recovery the old localhost root passwd 1-6, ok"
+
+    echo ''
+    echo 'Init the rpm database of this first time ...'
+    echo 'The backup rpm db path is : /opt/system/conf/rpmdb_bak'
+    cp -ar $SYSTEM_PATH/var/lib/rpm $SYSTEM_PATH/conf/rpmdb_bak
 fi
 
 # try to umount dom, by diwen
