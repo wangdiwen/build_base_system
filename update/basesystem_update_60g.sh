@@ -1061,7 +1061,7 @@ done
         fi
     fi
     grub_rework
-    # install_manager_system
+    install_manager_system
     deal_system_conf
     capture_version_and_system_info
     initrd_repack

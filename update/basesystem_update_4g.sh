@@ -905,6 +905,10 @@ function burn_system()
     mount_part ${DEVICE}7 $ROOT_PATH/opt/program/log || return 1
 
 
+    # Here, revise the '/tmp' permission
+    chmod 777 -R /tmp
+    chmod +t -R /tmp
+
     log "copy root system ..."
     local root_list=(bin lib64 opt usr etc lib sbin tmp var home)
     for path in ${root_list[@]}
@@ -1082,7 +1086,7 @@ done
         fi
     fi
     grub_rework
-    # install_manager_system
+    install_manager_system
     deal_system_conf
     capture_version_and_system_info
     initrd_repack

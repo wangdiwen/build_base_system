@@ -4,7 +4,7 @@ TOPDIR=$(pwd)
 
 install_to_cf=
 install_type=
-system_version=1.7
+system_version=1.8
 build_time=$(date +"%Y-%m-%d %H:%M:%S")  # 2014-03-14 13:43:43
 
 ISSUE_MAJOR_VERSION=$(cat /etc/issue|head -n 1 |awk '{printf $3}'|awk -F '.' '{printf $1}')
@@ -191,10 +191,10 @@ rpm -q yum-plugin-downloadonly
         echo -e "# nouveau Navida driver\nblacklist nouveau" >> /etc/modprobe.d/blacklist.conf
     }
 }
-rpm -e gcc
-rpm -e kernel-devel
-rpm -e make
-sleep 2
+# rpm -e gcc
+# rpm -e kernel-devel
+# rpm -e make
+# sleep 2
 # ===========================================================================
 
 
@@ -370,6 +370,11 @@ if [ -n $SYSTEM_PATH ] && [ -n $ROOT_PATH ]; then
     }
     cp -ar $SYSTEM_PATH/var/lib/rpm $SYSTEM_PATH/conf/rpmdb_bak
 
+    # here, modify the '/tmp' permission
+    [ -d $ROOT_PATH/tmp ] && {
+        chmod 777 -R $ROOT_PATH/tmp
+        chmod +t -R $ROOT_PATH/tmp
+    }
 fi
 
 # try to umount dom, by diwen
